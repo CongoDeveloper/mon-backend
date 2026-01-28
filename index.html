@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Scolaire Pro - Supervision Totale</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --sick: #9b59b6;
+            --purple: #8e44ad;
+            --dark: #232f3e;
+            --light: #f4f7f6;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #ebedef; color: #333; }
+        header { background: var(--primary); color: white; padding: 1rem; text-align: center; border-bottom: 4px solid var(--secondary); }
+        
+        nav { display: flex; justify-content: center; background: white; padding: 10px; gap: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; z-index: 100; }
+        nav button { padding: 10px 18px; cursor: pointer; border: none; background: var(--secondary); color: white; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        nav button:hover { opacity: 0.8; }
+        .btn-logout { background: var(--danger) !important; }
+
+        .container { max-width: 1250px; margin: 20px auto; padding: 20px; }
+        .section { display: none; }
+        .active { display: block; }
+
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .btn-save { background: var(--success); color: white; border: none; padding: 14px; cursor: pointer; width: 100%; border-radius: 6px; font-weight: bold; font-size: 16px; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: center; }
+        th { background: #f8f9fa; color: var(--primary); text-transform: uppercase; font-size: 11px; }
+
+        /* Badges Conduite */
+        .cond-Excellente { color: var(--success); font-weight: bold; }
+        .cond-Bonne { color: var(--secondary); font-weight: bold; }
+        .cond-Moyenne { color: var(--warning); font-weight: bold; }
+        .cond-Mauvaise { color: var(--danger); font-weight: bold; }
+
+        .badge { padding: 4px 10px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; display: inline-block; text-align: center; }
+        .bg-p { background: var(--success); } .bg-a { background: var(--danger); }
+        .bg-r { background: #d39e00; } .bg-m { background: var(--sick); }
+        .bg-alert { background: var(--danger); animation: blink 0.8s infinite; }
+        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
+
+        /* Action Buttons */
+        .action-container { display: flex; gap: 4px; justify-content: center; }
+        .btn-action { border: none; padding: 8px; border-radius: 5px; cursor: pointer; color: white; min-width: 32px; font-size: 14px; }
+        .btn-view { background: #607d8b; } .btn-history { background: #34495e; }
+        .btn-convoke { background: #e67e22; } .btn-edit { background: #f39c12; }
+        .btn-delete { background: var(--danger); }
+
+        .modal-content { background: white; margin: 5% auto; padding: 25px; border-radius: 12px; width: 90%; max-width: 550px; position: relative; max-height: 85vh; overflow-y: auto; }
+        .close { position: absolute; right: 20px; top: 15px; font-size: 28px; cursor: pointer; color: #999; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        
+        /* Result Styles */
+        .res-table { width: 100%; margin-top: 10px; font-size: 13px; }
+        .res-table th { background: var(--primary); color: white; }
+        .total-row { background: #f1f8ff; font-weight: bold; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Plateforme Scolaire Numérique</h1>
+    <div id="loggedAs" style="font-size: 0.9em; margin-top: 5px; font-style: italic;"></div>
+</header>
+
+<nav>
+    <button onclick="showSection('home')">🏠 Accueil</button>
+    <button onclick="showSection('parent')">👨‍👩‍👧 Parents</button>
+    <button id="navLogin" onclick="showSection('login')">🔐 Connexion Staff</button>
+    <button id="navStaff" style="display:none;" onclick="showSection('staffPanel')">⚙️ Ma Gestion</button>
+    <button id="navAdmin" style="display:none;" onclick="showSection('adminPanel')">👑 Super Admin</button>
+    <button id="navLogout" style="display:none;" class="btn-logout" onclick="logout()">Déconnexion</button>
+</nav>
+
+<div class="container">
+    <!-- Indicateur de chargement -->
+    <div id="loadingOverlay" style="display:none; text-align:center; padding: 10px; background: #fffbe6; border: 1px solid #ffe58f; margin-bottom: 20px; border-radius: 5px;">
+        Synchronisation avec le serveur en cours...
+    </div>
+
+    <section id="home" class="section active">
+        <h2>Écoles Partenaires</h2>
+        <div id="schoolList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;"></div>
+    </section>
+
+    <section id="parent" class="section">
+        <div class="card">
+            <h2>Suivi de l'élève</h2>
+            <div class="form-grid">
+                <input type="text" id="p_studentName" placeholder="Nom de l'élève">
+                <input type="text" id="p_parentId" placeholder="Votre ID Parent">
+            </div>
+            <button class="btn-save" onclick="searchByParent()">Rechercher</button>
+        </div>
+        <div id="parentResults"></div>
+    </section>
+
+    <section id="login" class="section">
+        <div class="card" style="max-width:400px; margin:auto; padding: 40px;">
+            <h2 style="text-align:center">Espace Professionnel</h2>
+            <input type="text" id="log_user" placeholder="Identifiant" style="margin-bottom:10px;">
+            <input type="password" id="log_pass" placeholder="Mot de passe">
+            <button class="btn-save" onclick="handleLogin()">Se connecter</button>
+        </div>
+    </section>
+
+    <section id="adminPanel" class="section">
+        <div class="card" style="border: 2px solid gold; background: #fffdf5;">
+            <h3>👑 Ajouter une École</h3>
+            <div class="form-grid">
+                <input type="text" id="sch_name" placeholder="Nom de l'école">
+                <input type="text" id="sch_img" placeholder="URL Logo">
+                <input type="text" id="sch_user" placeholder="Login Staff">
+                <input type="text" id="sch_pass" placeholder="Mot de passe Staff">
+            </div>
+            <button class="btn-save" onclick="addSchool()">Créer l'établissement</button>
+        </div>
+        <div class="card">
+            <h3>🏢 Gestion des Établissements</h3>
+            <div id="adminSchoolListView"></div>
+        </div>
+    </section>
+
+    <section id="staffPanel" class="section">
+        <div id="staffSchoolHeader" class="card" style="background: var(--dark); color:white;"></div>
+        
+        <div class="card" style="border-left: 5px solid var(--purple);">
+            <h3>📢 Communiqué de l'établissement</h3>
+            <textarea id="sch_communique" placeholder="Rédigez un message ou une annonce importante pour les parents de votre école..." rows="3"></textarea>
+            <button class="btn-save" style="margin-top:10px; background: var(--purple);" onclick="saveCommunique()">Mettre à jour le communiqué</button>
+        </div>
+
+        <div class="card">
+            <h3>Inscrire un nouvel élève</h3>
+            <div class="form-grid">
+                <input type="text" id="s_name" placeholder="Nom complet">
+                <input type="text" id="s_id" placeholder="ID Élève">
+                <input type="text" id="s_parentId" placeholder="ID Parent">
+                <select id="s_class">
+                    <option value="1">1ère Année</option><option value="2">2ème Année</option>
+                    <option value="3">3ème Année</option><option value="4">4ème Année</option>
+                    <option value="5">5ème Année</option><option value="6">6ème Année</option>
+                </select>
+                <select id="s_conduite">
+                    <option value="Excellente">Conduite Excellente</option>
+                    <option value="Bonne" selected>Conduite Bonne</option>
+                    <option value="Moyenne">Conduite Moyenne</option>
+                    <option value="Mauvaise">Conduite Mauvaise</option>
+                </select>
+            </div>
+            <button class="btn-save" onclick="saveNewStudent()">Ajouter l'élève</button>
+        </div>
+        <div id="staffClassLists"></div>
+    </section>
+</div>
+
+<!-- MODAL : MODIFIER ÉCOLE -->
+<div id="editSchoolModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('editSchoolModal')">&times;</span>
+        <h2>Modifier Identifiants École</h2>
+        <input type="hidden" id="editSchIndex">
+        <label>Nom de l'école :</label>
+        <input type="text" id="edit_schName" style="margin-bottom:15px;">
+        <label>Login Staff :</label>
+        <input type="text" id="edit_schUser" style="margin-bottom:15px;">
+        <label>Mot de passe Staff :</label>
+        <input type="text" id="edit_schPass" style="margin-bottom:15px;">
+        <button class="btn-save" onclick="saveEditedSchool()">Mettre à jour l'école</button>
+    </div>
+</div>
+
+<!-- MODALS ÉLÈVES -->
+<div id="historyModal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('historyModal')">&times;</span><h2 id="historyTitle"></h2><hr><div id="historyList"></div></div></div>
+<div id="viewModal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('viewModal')">&times;</span><h2 id="viewTitle"></h2><hr><div id="viewDetails"></div></div></div>
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('editModal')">&times;</span>
+        <h2>Modifier Informations & Résultats</h2>
+        <input type="hidden" id="editIndex">
+        <label>Nom Complet :</label>
+        <input type="text" id="edit_name" style="margin-bottom:15px;" placeholder="Nom">
+        <label>ID Élève :</label>
+        <input type="text" id="edit_id" style="margin-bottom:15px;" placeholder="ID Élève">
+        <label>ID Parent :</label>
+        <input type="text" id="edit_parentId" style="margin-bottom:15px;" placeholder="ID Parent">
+        <label>Conduite :</label>
+        <select id="edit_conduite" style="margin-bottom:15px;">
+            <option value="Excellente">Excellente</option>
+            <option value="Bonne">Bonne</option>
+            <option value="Moyenne">Moyenne</option>
+            <option value="Mauvaise">Mauvaise</option>
+        </select>
+        <label>Résultats par période (%) :</label>
+        <div class="form-grid">
+            <input type="number" id="edit_p1" placeholder="P1 %">
+            <input type="number" id="edit_p2" placeholder="P2 %">
+            <input type="number" id="edit_p3" placeholder="P3 %">
+            <input type="number" id="edit_p4" placeholder="P4 %">
+        </div>
+        <button class="btn-save" onclick="updateStudent()">Sauvegarder les modifications</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://mon-backend-1-bmuv.onrender.com";
+    let schools = [];
+    let students = [];
+    let currentUser = null;
+    const todayISO = new Date().toISOString().split('T')[0];
+
+    // --- LOGIQUE BACKEND ---
+    async function loadAllData() {
+        document.getElementById('loadingOverlay').style.display = 'block';
+        try {
+            const response = await fetch(`${API_URL}/data`);
+            const data = await response.json();
+            schools = data.schools || [];
+            students = data.students || [];
+            // Backup local
+            localStorage.setItem('schools', JSON.stringify(schools));
+            localStorage.setItem('students', JSON.stringify(students));
+            renderHomeSchools();
+        } catch (err) {
+            console.error("Erreur de chargement backend, passage au mode local", err);
+            schools = JSON.parse(localStorage.getItem('schools')) || [];
+            students = JSON.parse(localStorage.getItem('students')) || [];
+            renderHomeSchools();
+        }
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    async function persistData() {
+        document.getElementById('loadingOverlay').style.display = 'block';
+        // Mise à jour locale immédiate
+        localStorage.setItem('schools', JSON.stringify(schools));
+        localStorage.setItem('students', JSON.stringify(students));
+        
+        try {
+            await fetch(`${API_URL}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schools, students })
+            });
+        } catch (err) {
+            console.error("Erreur lors de la sauvegarde sur Render", err);
+        }
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // --- AUTHENTIFICATION ---
+    function handleLogin() {
+        const u = document.getElementById('log_user').value;
+        const p = document.getElementById('log_pass').value;
+        
+        // CODE ADMIN WILSON ELIOTTA MWENDA 2003
+        if(u === 'admin' && p === 'wilson eliotta mwenda 2003') { 
+            currentUser = { role: 'ADMIN', name: 'Super Admin' }; 
+            applyLogin(); 
+            return; 
+        }
+
+        const schoolFound = schools.find(s => s.staffUser === u && s.staffPass === p);
+        if(schoolFound) { 
+            currentUser = { role: 'STAFF', schoolId: schoolFound.id, name: schoolFound.name }; 
+            applyLogin(); 
+        } else { 
+            alert("Identifiants incorrects"); 
+        }
+    }
+
+    function applyLogin() {
+        document.getElementById('navLogin').style.display = 'none';
+        document.getElementById('navLogout').style.display = 'block';
+        document.getElementById('loggedAs').innerText = "Session : " + currentUser.name;
+        if(currentUser.role === 'ADMIN') { 
+            document.getElementById('navAdmin').style.display = 'block'; 
+            showSection('adminPanel'); 
+        } else { 
+            document.getElementById('navStaff').style.display = 'block'; 
+            showSection('staffPanel'); 
+        }
+    }
+
+    function logout() { location.reload(); }
+
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'home') renderHomeSchools();
+        if(id === 'adminPanel') renderAdminSchools();
+        if(id === 'staffPanel') renderStaffData();
+    }
+
+    function saveCommunique() {
+        const text = document.getElementById('sch_communique').value;
+        const schIdx = schools.findIndex(s => s.id === currentUser.schoolId);
+        if(schIdx !== -1) {
+            schools[schIdx].communique = text;
+            persistData();
+            alert("Communiqué publié avec succès !");
+        }
+    }
+
+    function addSchool() {
+        const name = document.getElementById('sch_name').value;
+        const img = document.getElementById('sch_img').value || 'https://via.placeholder.com/80';
+        const user = document.getElementById('sch_user').value;
+        const pass = document.getElementById('sch_pass').value;
+        if(!name || !user || !pass) return alert("Champs obligatoires !");
+        schools.push({ id: 'SCH-'+Date.now(), name, img, staffUser: user, staffPass: pass, communique: "" });
+        renderAdminSchools();
+        renderHomeSchools();
+        persistData();
+    }
+
+    function renderAdminSchools() {
+        const container = document.getElementById('adminSchoolListView');
+        let html = `<table><tr><th>École</th><th>Total Élèves</th><th>Login Staff</th><th>Pass Staff</th><th>Action</th></tr>`;
+        schools.forEach((s, i) => {
+            const studentCount = students.filter(st => st.schoolId === s.id).length;
+            html += `<tr>
+                <td><b>${s.name}</b></td>
+                <td><span class="badge bg-p" style="font-size:14px;">${studentCount}</span></td>
+                <td><code>${s.staffUser}</code></td>
+                <td><code>${s.staffPass}</code></td>
+                <td>
+                    <button class="btn-action btn-edit" onclick="openEditSchoolModal(${i})">📝</button>
+                    <button class="btn-action btn-delete" onclick="deleteSchool(${i})">🗑️</button>
+                </td>
+            </tr>`;
+        });
+        container.innerHTML = html + `</table>`;
+    }
+
+    function openEditSchoolModal(i) {
+        const s = schools[i];
+        document.getElementById('editSchIndex').value = i;
+        document.getElementById('edit_schName').value = s.name;
+        document.getElementById('edit_schUser').value = s.staffUser;
+        document.getElementById('edit_schPass').value = s.staffPass;
+        document.getElementById('editSchoolModal').style.display = 'block';
+    }
+
+    function saveEditedSchool() {
+        const i = document.getElementById('editSchIndex').value;
+        schools[i].name = document.getElementById('edit_schName').value;
+        schools[i].staffUser = document.getElementById('edit_schUser').value;
+        schools[i].staffPass = document.getElementById('edit_schPass').value;
+        persistData();
+        closeModal('editSchoolModal');
+        renderAdminSchools();
+        alert("École mise à jour !");
+    }
+
+    function deleteSchool(i) {
+        if(confirm("Supprimer l'école et tous ses élèves ?")) {
+            const schId = schools[i].id;
+            students = students.filter(st => st.schoolId !== schId);
+            schools.splice(i, 1);
+            renderAdminSchools();
+            persistData();
+        }
+    }
+
+    function renderStaffData() {
+        const school = schools.find(s => s.id === currentUser.schoolId);
+        document.getElementById('staffSchoolHeader').innerHTML = `<h2>Gestion : ${school.name}</h2>`;
+        document.getElementById('sch_communique').value = school.communique || "";
+        const container = document.getElementById('staffClassLists');
+        container.innerHTML = "";
+        const myStudents = students
+            .map((s, i) => ({...s, originalIndex: i}))
+            .filter(s => s.schoolId === currentUser.schoolId)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        ["1","2","3","4","5","6"].forEach(cls => {
+            const list = myStudents.filter(s => s.className === cls);
+            if(list.length > 0) {
+                let html = `<div class="card"><h3>Classe ${cls}è Année</h3><div style="overflow-x:auto"><table><tr><th>Élève</th><th>Pointage</th><th>Conduite</th><th>Actions</th></tr>`;
+                list.forEach(s => {
+                    const i = s.originalIndex;
+                    html += `<tr>
+                        <td><b>${s.name}</b><br>${s.isConvoked ? '<span class="badge bg-alert">CONVOQUÉ</span>' : ''}</td>
+                        <td>
+                            <select onchange="updatePres(${i}, this.value)" style="width:auto; padding:5px;">
+                                <option ${s.presence==='Présent'?'selected':''}>Présent</option>
+                                <option ${s.presence==='Absent'?'selected':''}>Absent</option>
+                                <option ${s.presence==='Retard'?'selected':''}>Retard</option>
+                                <option ${s.presence==='Malade'?'selected':''}>Malade</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select onchange="updateConduite(${i}, this.value)" class="cond-${s.conduite || 'Bonne'}" style="width:auto; padding:5px; border:none; background:transparent;">
+                                <option value="Excellente" ${s.conduite==='Excellente'?'selected':''}>Excellente</option>
+                                <option value="Bonne" ${s.conduite==='Bonne'?'selected':''}>Bonne</option>
+                                <option value="Moyenne" ${s.conduite==='Moyenne'?'selected':''}>Moyenne</option>
+                                <option value="Mauvaise" ${s.conduite==='Mauvaise'?'selected':''}>Mauvaise</option>
+                            </select>
+                        </td>
+                        <td class="action-container">
+                            <button class="btn-action btn-view" onclick="viewDetails(${i})">👁️</button>
+                            <button class="btn-action btn-history" onclick="viewHistory(${i})">📅</button>
+                            <button class="btn-action btn-convoke" onclick="toggleConvocation(${i})">📢</button>
+                            <button class="btn-action btn-edit" onclick="openEditModal(${i})">📝</button>
+                            <button class="btn-action btn-delete" onclick="deleteStudent(${i})">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+                container.innerHTML += html + `</table></div></div>`;
+            }
+        });
+    }
+
+    function updatePres(i, val) {
+        students[i].presence = val;
+        if(!students[i].history) students[i].history = {};
+        students[i].history[todayISO] = val;
+        persistData();
+    }
+
+    function updateConduite(i, val) {
+        students[i].conduite = val;
+        persistData();
+        renderStaffData();
+    }
+
+    function viewHistory(i) {
+        const s = students[i];
+        document.getElementById('historyTitle').innerText = "Historique : " + s.name;
+        const list = document.getElementById('historyList');
+        list.innerHTML = "";
+        if(!s.history) { list.innerHTML = "Aucun historique."; } else {
+            Object.keys(s.history).sort().reverse().forEach(date => {
+                const status = s.history[date];
+                let bg = "bg-p"; if(status==="Absent") bg="bg-a"; if(status==="Retard") bg="bg-r"; if(status==="Malade") bg="bg-m";
+                list.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #eee;"><span>${date}</span><span class="badge ${bg}">${status}</span></div>`;
+            });
+        }
+        document.getElementById('historyModal').style.display = 'block';
+    }
+
+    function viewDetails(i) {
+        const s = students[i];
+        const p = s.points || {p1:0, p2:0, p3:0, p4:0};
+        const s1 = (Number(p.p1) + Number(p.p2)) / 2;
+        const s2 = (Number(p.p3) + Number(p.p4)) / 2;
+        const total = (s1 + s2) / 2;
+        document.getElementById('viewTitle').innerText = s.name;
+        document.getElementById('viewDetails').innerHTML = `<b>ID :</b> ${s.id}<br><b>Conduite :</b> ${s.conduite}<hr><b>Moyenne : ${total}%</b>`;
+        document.getElementById('viewModal').style.display = 'block';
+    }
+
+    function toggleConvocation(i) { students[i].isConvoked = !students[i].isConvoked; persistData(); renderStaffData(); }
+
+    function openEditModal(i) {
+        const s = students[i];
+        document.getElementById('editIndex').value = i;
+        document.getElementById('edit_name').value = s.name;
+        document.getElementById('edit_id').value = s.id; 
+        document.getElementById('edit_parentId').value = s.parentId; 
+        document.getElementById('edit_conduite').value = s.conduite || "Bonne";
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function updateStudent() {
+        const i = document.getElementById('editIndex').value;
+        students[i].name = document.getElementById('edit_name').value;
+        students[i].id = document.getElementById('edit_id').value; 
+        students[i].parentId = document.getElementById('edit_parentId').value; 
+        students[i].conduite = document.getElementById('edit_conduite').value;
+        students[i].points = { 
+            p1: document.getElementById('edit_p1').value || 0, 
+            p2: document.getElementById('edit_p2').value || 0,
+            p3: document.getElementById('edit_p3').value || 0,
+            p4: document.getElementById('edit_p4').value || 0
+        };
+        persistData();
+        closeModal('editModal'); 
+        renderStaffData();
+    }
+
+    function deleteStudent(i) { if(confirm("Supprimer ?")) { students.splice(i, 1); persistData(); renderStaffData(); } }
+
+    function saveNewStudent() {
+        const name = document.getElementById('s_name').value;
+        const id = document.getElementById('s_id').value;
+        const pId = document.getElementById('s_parentId').value;
+        const cls = document.getElementById('s_class').value;
+        if(!name || !id) return alert("Champs requis");
+        students.push({ 
+            schoolId: currentUser.schoolId, name, id, parentId: pId, className: cls, 
+            presence: "Présent", conduite: "Bonne", isConvoked: false, 
+            points: {p1:0, p2:0, p3:0, p4:0}, history: {[todayISO]: "Présent"} 
+        });
+        persistData();
+        renderStaffData();
+        document.getElementById('s_name').value = "";
+    }
+
+    function searchByParent() {
+        const name = document.getElementById('p_studentName').value.toLowerCase();
+        const pId = document.getElementById('p_parentId').value;
+        const found = students.filter(s => s.parentId === pId && s.name.toLowerCase().includes(name));
+        document.getElementById('parentResults').innerHTML = found.map(s => {
+            const p = s.points || {p1:0, p2:0, p3:0, p4:0};
+            const schoolInfo = schools.find(sc => sc.id === s.schoolId);
+            return `<div class="card"><h3>${s.name}</h3><p>École : ${schoolInfo ? schoolInfo.name : '?'}</p><p>Points P1: ${p.p1}%</p></div>`;
+        }).join('') || "Aucun résultat.";
+    }
+
+    function renderHomeSchools() {
+        document.getElementById('schoolList').innerHTML = schools.map(s => `
+            <div class="card" style="text-align:center">
+                <img src="${s.img}" style="width:80px; height:80px; border-radius:50%; object-fit:cover;">
+                <h4>${s.name}</h4>
+            </div>
+        `).join('');
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = "none"; }
+
+    // Démarrage
+    loadAllData();
+</script>
+</body>
+</html>
